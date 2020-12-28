@@ -8,7 +8,7 @@
 """RegNet models."""
 
 import numpy as np
-import pycls.models.blocks as bk
+from pycls.models.blocks import adjust_block_compatibility
 from pycls.core.config import cfg
 from pycls.models.anynet import AnyNet
 
@@ -43,7 +43,7 @@ class RegNet(AnyNet):
         ss = [cfg.REGNET.STRIDE for _ in ws]
         bs = [cfg.REGNET.BOT_MUL for _ in ws]
         gs = [cfg.REGNET.GROUP_W for _ in ws]
-        ws, bs, gs = bk.adjust_block_compatibility(ws, bs, gs)
+        ws, bs, gs = adjust_block_compatibility(ws, bs, gs)
         # Get AnyNet arguments defining the RegNet
         return {
             "stem_type": cfg.REGNET.STEM_TYPE,
@@ -55,6 +55,12 @@ class RegNet(AnyNet):
             "bot_muls": bs,
             "group_ws": gs,
             "se_r": cfg.REGNET.SE_R if cfg.REGNET.SE_ON else 0,
+            "se1_r": cfg.REGNET.SE1_R,
+            "c_se": cfg.REGNET.C_SE_ON,
+            "se_gap": cfg.REGNET.SE_GAP_ON,
+            "se_gap1": cfg.REGNET.SE_GAP1_ON,
+            "w_se": cfg.REGNET.W_SE_ON,
+            "w1_se": cfg.REGNET.W1_SE_ON,
             "num_classes": cfg.MODEL.NUM_CLASSES,
         }
 

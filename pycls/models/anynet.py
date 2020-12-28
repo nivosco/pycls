@@ -10,6 +10,11 @@
 from pycls.core.config import cfg
 from pycls.models.blocks import (
     SE,
+    C_SE,
+    W_SE,
+    W1_SE,
+    SE_GAP,
+    SE_GAP1,
     activation,
     conv2d,
     conv2d_cx,
@@ -157,6 +162,7 @@ class BottleneckTransform(Module):
         super(BottleneckTransform, self).__init__()
         w_b = int(round(w_out * params["bot_mul"]))
         w_se = int(round(w_in * params["se_r"]))
+        w_se1 = int(round(w_in * params["se1_r"]))
         groups = w_b // params["group_w"]
         self.a = conv2d(w_in, w_b, 1)
         self.a_bn = norm2d(w_b)
@@ -165,6 +171,11 @@ class BottleneckTransform(Module):
         self.b_bn = norm2d(w_b)
         self.b_af = activation()
         self.se = SE(w_b, w_se) if w_se else None
+        self.c_se = C_SE(w_b, w_se) if params['c_se'] else None
+        self.w_se = W_SE(w_b, w_se1) if params['w_se'] else None
+        self.w1_se = W1_SE(w_b, w_se1) if params['w1_se'] else None
+        self.se_gap = SE_GAP(w_b, w_se1) if params['se_gap'] else None
+        self.se_gap1 = SE_GAP1(w_b, w_se1) if params['se_gap1'] else None
         self.c = conv2d(w_b, w_out, 1)
         self.c_bn = norm2d(w_out)
         self.c_bn.final_bn = True
@@ -178,12 +189,18 @@ class BottleneckTransform(Module):
     def complexity(cx, w_in, w_out, stride, params):
         w_b = int(round(w_out * params["bot_mul"]))
         w_se = int(round(w_in * params["se_r"]))
+        w_se1 = int(round(w_in * params["se1_r"]))
         groups = w_b // params["group_w"]
         cx = conv2d_cx(cx, w_in, w_b, 1)
         cx = norm2d_cx(cx, w_b)
         cx = conv2d_cx(cx, w_b, w_b, 3, stride=stride, groups=groups)
         cx = norm2d_cx(cx, w_b)
         cx = SE.complexity(cx, w_b, w_se) if w_se else cx
+        cx = C_SE.complexity(cx, w_b, w_se) if params['c_se'] else cx
+        cx = W_SE.complexity(cx, w_b, w_se1) if params['w_se'] else cx
+        cx = W1_SE.complexity(cx, w_b, w_se1) if params['w1_se'] else cx
+        cx = SE_GAP.complexity(cx, w_b, w_se1) if params['se_gap'] else cx
+        cx = SE_GAP1.complexity(cx, w_b, w_se1) if params['se_gap1'] else cx
         cx = conv2d_cx(cx, w_b, w_out, 1)
         cx = norm2d_cx(cx, w_out)
         return cx
@@ -320,6 +337,12 @@ class AnyNet(Module):
             "bot_muls": cfg.ANYNET.BOT_MULS if cfg.ANYNET.BOT_MULS else nones,
             "group_ws": cfg.ANYNET.GROUP_WS if cfg.ANYNET.GROUP_WS else nones,
             "se_r": cfg.ANYNET.SE_R if cfg.ANYNET.SE_ON else 0,
+            "se1_r": cfg.ANYNET.SE1_R,
+            "c_se": cfg.ANYNET.C_SE_ON,
+            "w_se": cfg.ANYNET.W_SE_ON,
+            "w1_se": cfg.ANYNET.W1_SE_ON,
+            "se_gap": cfg.ANYNET.SE_GAP_ON,
+            "se_gap1": cfg.ANYNET.SE_GAP1_ON,
             "num_classes": cfg.MODEL.NUM_CLASSES,
         }
 
@@ -332,7 +355,7 @@ class AnyNet(Module):
         prev_w = p["stem_w"]
         keys = ["depths", "widths", "strides", "bot_muls", "group_ws"]
         for i, (d, w, s, b, g) in enumerate(zip(*[p[k] for k in keys])):
-            params = {"bot_mul": b, "group_w": g, "se_r": p["se_r"]}
+            params = {"bot_mul": b, "group_w": g, "se_r": p["se_r"], "se1_r": p["se1_r"], "c_se": p["c_se"], "w_se": p["w_se"], "w1_se": p["w1_se"], "se_gap": p["se_gap"], "se_gap1": p["se_gap1"]}
             stage = AnyStage(prev_w, w, s, d, block_fun, params)
             self.add_module("s{}".format(i + 1), stage)
             prev_w = w
@@ -354,7 +377,7 @@ class AnyNet(Module):
         prev_w = p["stem_w"]
         keys = ["depths", "widths", "strides", "bot_muls", "group_ws"]
         for d, w, s, b, g in zip(*[p[k] for k in keys]):
-            params = {"bot_mul": b, "group_w": g, "se_r": p["se_r"]}
+            params = {"bot_mul": b, "group_w": g, "se_r": p["se_r"], "se1_r": p["se1_r"], "c_se": p["c_se"], "w_se": p["w_se"], "w1_se": p["w1_se"], "se_gap": p["se_gap"], "se_gap1": p["se_gap1"]}
             cx = AnyStage.complexity(cx, prev_w, w, s, d, block_fun, params)
             prev_w = w
         cx = AnyHead.complexity(cx, prev_w, p["num_classes"])

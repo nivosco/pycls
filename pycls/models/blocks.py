@@ -40,6 +40,11 @@ def gap2d(_w_in):
     return nn.AdaptiveAvgPool2d((1, 1))
 
 
+def wap2d(_w_in):
+    """Helper for building a wap2d layer."""
+    return nn.AdaptiveAvgPool2d((None, 1))
+
+
 def linear(w_in, w_out, *, bias=False):
     """Helper for building a linear layer."""
     return nn.Linear(w_in, w_out, bias=bias)
@@ -69,9 +74,19 @@ def conv2d_cx(cx, w_in, w_out, k, *, stride=1, groups=1, bias=False):
     h, w = (h - 1) // stride + 1, (w - 1) // stride + 1
     flops += k * k * w_in * w_out * h * w // groups + (w_out if bias else 0)
     params += k * k * w_in * w_out // groups + (w_out if bias else 0)
-    acts += w_out * h * w
+    acts += w_in * w * k
     return {"h": h, "w": w, "flops": flops, "params": params, "acts": acts}
 
+
+def conv1d_cx(cx, w_in, w_out, k, *, stride=1, groups=1, bias=False):
+    """Accumulates complexity of conv2d into cx = (h, w, flops, params, acts)."""
+    assert k % 2 == 1, "Only odd size kernels supported to avoid padding issues."
+    h, w, flops, params, acts = cx["h"], cx["w"], cx["flops"], cx["params"], cx["acts"]
+    flops += k * w_in * w_out * h * w // groups + (w_out if bias else 0)
+    params += k * w_in * w_out // groups + (w_out if bias else 0)
+    acts += w_in * w * k
+    return {"h": h, "w": w, "flops": flops, "params": params, "acts": acts}
+    
 
 def norm2d_cx(cx, w_in):
     """Accumulates complexity of norm2d into cx = (h, w, flops, params, acts)."""
@@ -85,13 +100,21 @@ def pool2d_cx(cx, w_in, k, *, stride=1):
     assert k % 2 == 1, "Only odd size kernels supported to avoid padding issues."
     h, w, flops, params, acts = cx["h"], cx["w"], cx["flops"], cx["params"], cx["acts"]
     h, w = (h - 1) // stride + 1, (w - 1) // stride + 1
-    acts += w_in * h * w
+    acts += w_in * w * k
     return {"h": h, "w": w, "flops": flops, "params": params, "acts": acts}
+
+
+def wap2d_cx(cx, _w_in):
+    """Accumulates complexity of wap2d into cx = (h, w, flops, params, acts)."""
+    h, w, flops, params, acts = cx["h"], cx["w"], cx["flops"], cx["params"], cx["acts"]
+    acts += _w_in * w
+    return {"h": h, "w": 1, "flops": flops, "params": params, "acts": acts}
 
 
 def gap2d_cx(cx, _w_in):
     """Accumulates complexity of gap2d into cx = (h, w, flops, params, acts)."""
-    flops, params, acts = cx["flops"], cx["params"], cx["acts"]
+    h, w, flops, params, acts = cx["h"], cx["w"], cx["flops"], cx["params"], cx["acts"]
+    acts += _w_in * w * h
     return {"h": 1, "w": 1, "flops": flops, "params": params, "acts": acts}
 
 
@@ -100,7 +123,7 @@ def linear_cx(cx, w_in, w_out, *, bias=False):
     h, w, flops, params, acts = cx["h"], cx["w"], cx["flops"], cx["params"], cx["acts"]
     flops += w_in * w_out + (w_out if bias else 0)
     params += w_in * w_out + (w_out if bias else 0)
-    acts += w_out
+    acts += w_in
     return {"h": h, "w": w, "flops": flops, "params": params, "acts": acts}
 
 
@@ -141,6 +164,127 @@ class SE(Module):
         cx = gap2d_cx(cx, w_in)
         cx = conv2d_cx(cx, w_in, w_se, 1, bias=True)
         cx = conv2d_cx(cx, w_se, w_in, 1, bias=True)
+        cx["h"], cx["w"] = h, w
+        return cx
+
+
+class C_SE(Module):
+    """Channel Squeeze-and-Excitation (cSE) block: 1x1, Sigmoid."""
+
+    def __init__(self, w_in, w_se):
+        super(C_SE, self).__init__()
+        self.f_ex = nn.Sequential(
+            conv2d(w_in, 1, 1, bias=True),
+            nn.Sigmoid(),
+        )
+
+    def forward(self, x):
+        return x * self.f_ex(x)
+
+    @staticmethod
+    def complexity(cx, w_in, w_se):
+        h, w = cx["h"], cx["w"]
+        cx = conv2d_cx(cx, w_in, 1, 1, bias=True)
+        cx["h"], cx["w"] = h, w
+        return cx
+
+
+class SE_GAP(Module):
+    """Squeeze-and-Excitation without GAP (SE_GAP) block: 3x3, Act, 3x3, Sigmoid."""
+
+    def __init__(self, w_in, w_se):
+        super(SE_GAP, self).__init__()
+        self.f_ex = nn.Sequential(
+            conv2d(w_in, w_se, 3, bias=True),
+            activation(),
+            conv2d(w_se, w_in, 3, bias=True),
+            nn.Sigmoid(),
+        )
+
+    def forward(self, x):
+        return x * self.f_ex(x)
+
+    @staticmethod
+    def complexity(cx, w_in, w_se):
+        h, w = cx["h"], cx["w"]
+        cx = conv2d_cx(cx, w_in, w_se, 3, bias=True)
+        cx = conv2d_cx(cx, w_se, w_in, 3, bias=True)
+        cx["h"], cx["w"] = h, w
+        return cx
+
+
+class SE_GAP1(Module):
+    """Squeeze-and-Excitation without GAP (SE_GAP) block: 3x3, Act, 3x3, Sigmoid."""
+
+    def __init__(self, w_in, w_se):
+        super(SE_GAP1, self).__init__()
+        self.f_ex = nn.Sequential(
+            conv2d(w_in, w_se, 1, bias=True),
+            activation(),
+            conv2d(w_se, w_in, 1, bias=True),
+            nn.Sigmoid(),
+        )
+
+    def forward(self, x):
+        return x * self.f_ex(x)
+
+    @staticmethod
+    def complexity(cx, w_in, w_se):
+        h, w = cx["h"], cx["w"]
+        cx = conv2d_cx(cx, w_in, w_se, 1, bias=True)
+        cx = conv2d_cx(cx, w_se, w_in, 1, bias=True)
+        cx["h"], cx["w"] = h, w
+        return cx
+
+
+class W_SE(Module):
+    """Width Squeeze-and-Excitation (W_SE) block: AvgPool, 3x1, Act, 3x1, Sigmoid."""
+
+    def __init__(self, w_in, w_se):
+        super(W_SE, self).__init__()
+        self.avg_pool = wap2d(w_in)
+        self.f_ex = nn.Sequential(
+            nn.Conv1d(w_in, w_se, 3, stride=1, padding=1, bias=True),
+            activation(),
+            nn.Conv1d(w_se, w_in, 3, stride=1, padding=1, bias=True),
+            nn.Sigmoid(),
+        )
+
+    def forward(self, x):
+        return x * torch.unsqueeze(self.f_ex(torch.squeeze(self.avg_pool(x))), -1)
+
+    @staticmethod
+    def complexity(cx, w_in, w_se):
+        h, w = cx["h"], cx["w"]
+        cx = wap2d_cx(cx, w_in)
+        cx = conv1d_cx(cx, w_in, w_se, 3, bias=True)
+        cx = conv1d_cx(cx, w_se, w_in, 3, bias=True)
+        cx["h"], cx["w"] = h, w
+        return cx
+
+
+class W1_SE(Module):
+    """Width Squeeze-and-Excitation (W_SE) block: AvgPool, 3x1, Act, 3x1, Sigmoid."""
+
+    def __init__(self, w_in, w_se):
+        super(W1_SE, self).__init__()
+        self.avg_pool = wap2d(w_in)
+        self.f_ex = nn.Sequential(
+            nn.Conv1d(w_in, w_se, 1, stride=1, padding=1, bias=True),
+            activation(),
+            nn.Conv1d(w_se, w_in, 1, stride=1, padding=1, bias=True),
+            nn.Sigmoid(),
+        )
+
+    def forward(self, x):
+        return x * torch.unsqueeze(self.f_ex(torch.squeeze(self.avg_pool(x))), -1)
+
+    @staticmethod
+    def complexity(cx, w_in, w_se):
+        h, w = cx["h"], cx["w"]
+        cx = wap2d_cx(cx, w_in)
+        cx = conv1d_cx(cx, w_in, w_se, 1, bias=True)
+        cx = conv1d_cx(cx, w_se, w_in, 1, bias=True)
         cx["h"], cx["w"] = h, w
         return cx
 

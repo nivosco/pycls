@@ -88,9 +88,26 @@ _C.ANYNET.GROUP_WS = []
 # Whether SE is enabled for res_bottleneck_block
 _C.ANYNET.SE_ON = False
 
+# Whether cSE is enabled for res_bottleneck_block
+_C.ANYNET.C_SE_ON = False
+
+# Whether SE_GAP is enabled for res_bottleneck_block
+_C.ANYNET.SE_GAP_ON = False
+
+# Whether SE_GAPi1 is enabled for res_bottleneck_block
+_C.ANYNET.SE_GAP1_ON = False
+
+# Whether wSE is enabled for res_bottleneck_block
+_C.ANYNET.W_SE_ON = False
+
+# Whether w1SE is enabled for res_bottleneck_block
+_C.ANYNET.W1_SE_ON = False
+
 # SE ratio
 _C.ANYNET.SE_R = 0.25
 
+# SE ratio for non-SE
+_C.ANYNET.SE1_R = 0.5
 
 # ---------------------------------- RegNet options ---------------------------------- #
 _C.REGNET = CfgNode()
@@ -109,7 +126,13 @@ _C.REGNET.STRIDE = 2
 
 # Squeeze-and-Excitation (RegNetY)
 _C.REGNET.SE_ON = False
+_C.REGNET.C_SE_ON = False
+_C.REGNET.SE_GAP_ON = False
+_C.REGNET.SE_GAP1_ON = False
+_C.REGNET.W_SE_ON = False
+_C.REGNET.W1_SE_ON = False
 _C.REGNET.SE_R = 0.25
+_C.REGNET.SE1_R = 0.5
 
 # Depth
 _C.REGNET.DEPTH = 10

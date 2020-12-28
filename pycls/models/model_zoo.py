@@ -42,6 +42,13 @@ _MODEL_ZOO_CONFIGS = {
     "RegNetY-400MF": "dds_baselines/regnety/RegNetY-400MF_dds_8gpu.yaml",
     "RegNetY-600MF": "dds_baselines/regnety/RegNetY-600MF_dds_8gpu.yaml",
     "RegNetY-800MF": "dds_baselines/regnety/RegNetY-800MF_dds_8gpu.yaml",
+    "RegNetY-800MF_NO_SE": "dds_baselines/regnety/RegNetY-800MF_dds_8gpu_no_se.yaml",
+    "RegNetY-800MF_C_SE": "dds_baselines/regnety/RegNetY-800MF_dds_8gpu_c_se.yaml",
+    "RegNetY-800MF_W_SE": "dds_baselines/regnety/RegNetY-800MF_dds_8gpu_w_se.yaml",
+    "RegNetY-800MF_W1_SE": "dds_baselines/regnety/RegNetY-800MF_dds_8gpu_w1_se.yaml",
+    "RegNetY-800MF_W25_SE": "dds_baselines/regnety/RegNetY-800MF_dds_8gpu_w25_se.yaml",
+    "RegNetY-800MF_SE_GAP": "dds_baselines/regnety/RegNetY-800MF_dds_8gpu_se_gap.yaml",
+    "RegNetY-800MF_SE_GAP1": "dds_baselines/regnety/RegNetY-800MF_dds_8gpu_se_gap1.yaml",
     "RegNetY-1.6GF": "dds_baselines/regnety/RegNetY-1.6GF_dds_8gpu.yaml",
     "RegNetY-3.2GF": "dds_baselines/regnety/RegNetY-3.2GF_dds_8gpu.yaml",
     "RegNetY-4.0GF": "dds_baselines/regnety/RegNetY-4.0GF_dds_8gpu.yaml",
@@ -82,6 +89,7 @@ _MODEL_ZOO_WEIGHTS = {
     "RegNetY-400MF": "dds_baselines/160906449/RegNetY-400MF_dds_8gpu.pyth",
     "RegNetY-600MF": "dds_baselines/160981443/RegNetY-600MF_dds_8gpu.pyth",
     "RegNetY-800MF": "dds_baselines/160906567/RegNetY-800MF_dds_8gpu.pyth",
+    "RegNetY-800MF_NO_SE": "dds_baselines/160906567/RegNetY-800MF_dds_8gpu.pyth",
     "RegNetY-1.6GF": "dds_baselines/160906681/RegNetY-1.6GF_dds_8gpu.pyth",
     "RegNetY-3.2GF": "dds_baselines/160906834/RegNetY-3.2GF_dds_8gpu.pyth",
     "RegNetY-4.0GF": "dds_baselines/160906838/RegNetY-4.0GF_dds_8gpu.pyth",
@@ -114,8 +122,8 @@ def get_config_file(name):
     """Get file with model config (downloads if necessary)."""
     err_str = "Model {} not found in the model zoo.".format(name)
     assert name in _MODEL_ZOO_CONFIGS.keys(), err_str
-    config_url = os.path.join(_URL_CONFIGS, _MODEL_ZOO_CONFIGS[name])
-    return cache_url(config_url, _DOWNLOAD_CACHE, _URL_CONFIGS)
+    config_url = os.path.join(os.getcwd(), 'configs', _MODEL_ZOO_CONFIGS[name])
+    return config_url
 
 
 def get_weights_file(name):
