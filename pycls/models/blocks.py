@@ -270,9 +270,9 @@ class W1_SE(Module):
         super(W1_SE, self).__init__()
         self.avg_pool = wap2d(w_in)
         self.f_ex = nn.Sequential(
-            nn.Conv1d(w_in, w_se, 1, stride=1, padding=1, bias=True),
+            nn.Conv1d(w_in, w_se, 1, stride=1, padding=0, bias=True),
             activation(),
-            nn.Conv1d(w_se, w_in, 1, stride=1, padding=1, bias=True),
+            nn.Conv1d(w_se, w_in, 1, stride=1, padding=0, bias=True),
             nn.Sigmoid(),
         )
 
