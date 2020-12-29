@@ -237,6 +237,30 @@ class SE_GAP1(Module):
         return cx
 
 
+class SE_GAP_DW(Module):
+    """Squeeze-and-Excitation without GAP (SE_GAP) block: dw3x3, Act, dw3x3, Sigmoid."""
+
+    def __init__(self, w_in):
+        super(SE_GAP_DW, self).__init__()
+        self.f_ex = nn.Sequential(
+            conv2d(w_in, w_in, 3, groups=w_in, bias=True),
+            activation(),
+            conv2d(w_in, w_in, 3, groups=w_in, bias=True),
+            nn.Sigmoid(),
+        )
+
+    def forward(self, x):
+        return x * self.f_ex(x)
+
+    @staticmethod
+    def complexity(cx, w_in):
+        h, w = cx["h"], cx["w"]
+        cx = conv2d_cx(cx, w_in, w_in, 3, groups=w_in, bias=True)
+        cx = conv2d_cx(cx, w_in, w_in, 3, groups=w_in, bias=True)
+        cx["h"], cx["w"] = h, w
+        return cx
+
+
 class W_SE(Module):
     """Width Squeeze-and-Excitation (W_SE) block: AvgPool, 3x1, Act, 3x1, Sigmoid."""
 

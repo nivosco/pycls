@@ -1,3 +1,27 @@
+### change log
+- added new blocks to replace S&E: C_SE, W_SE, W1_SE, SE_GAP, SE_GAP1.
+  - C_SE: use 1x1 with a single output channel to do channel squeeze and spatial excitation
+  - W_SE: squeeze the width dimension and use conv1d for channel excitation
+  - W1_SE: same as W_SE but with conv1d with kernel size = 1
+  - SE_GAP: SE block without the global average pool and conv2d instead of the FC
+  - SE_GAP1: same as SE_GAP but with conv2d with kernel size = 1
+- added new config for all variants and a new script complexity.py in tools to print complexity
+- found a bug in the new blocks (used SE_R of 0.5 instead of 0.25)
+
+### Results
+| Network                  | Top1 |
+|--------------------------|------|
+| RegnetY-800MF (original) | 76.3 |
+| RegnetY-800MF-C-SE       | 74.5 |
+| RegnetY-800MF-W-SE       | 76.4 |
+| RegnetY-800MF-W1-SE      | ---- |
+| RegnetY-800MF-SE-GAP     | 77.1 |
+| RegnetY-800MF-SE-GAP1    | 75.9 |
+* used SE_R=0.5 for all models except the original
+<br>
+
+### original README
+
 # pycls
 
 **pycls** is an image classification codebase, written in [PyTorch](https://pytorch.org/). It was originally developed for the [On Network Design Spaces for Visual Recognition](https://arxiv.org/abs/1905.13214) project. **pycls** has since matured and been adopted by a number of [projects](#projects) at Facebook AI Research.

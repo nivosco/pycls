@@ -49,6 +49,7 @@ _MODEL_ZOO_CONFIGS = {
     "RegNetY-800MF_W25_SE": "dds_baselines/regnety/RegNetY-800MF_dds_8gpu_w25_se.yaml",
     "RegNetY-800MF_SE_GAP": "dds_baselines/regnety/RegNetY-800MF_dds_8gpu_se_gap.yaml",
     "RegNetY-800MF_SE_GAP1": "dds_baselines/regnety/RegNetY-800MF_dds_8gpu_se_gap1.yaml",
+    "RegNetY-800MF_SE_GAP_DW": "dds_baselines/regnety/RegNetY-800MF_dds_8gpu_se_gap_dw.yaml",
     "RegNetY-1.6GF": "dds_baselines/regnety/RegNetY-1.6GF_dds_8gpu.yaml",
     "RegNetY-3.2GF": "dds_baselines/regnety/RegNetY-3.2GF_dds_8gpu.yaml",
     "RegNetY-4.0GF": "dds_baselines/regnety/RegNetY-4.0GF_dds_8gpu.yaml",
