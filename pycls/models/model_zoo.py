@@ -65,6 +65,7 @@ _MODEL_ZOO_CONFIGS = {
     "ResNeXt-101": "dds_baselines/resnext/X-101-32x4d_dds_8gpu.yaml",
     "ResNeXt-152": "dds_baselines/resnext/X-152-32x4d_dds_8gpu.yaml",
     "EfficientNet-B0": "dds_baselines/effnet/EN-B0_dds_8gpu.yaml",
+    "EfficientNet-B0-WSE": "dds_baselines/effnet/EN-B0_dds_8gpu_wse.yaml",
     "EfficientNet-B1": "dds_baselines/effnet/EN-B1_dds_8gpu.yaml",
     "EfficientNet-B2": "dds_baselines/effnet/EN-B2_dds_8gpu.yaml",
     "EfficientNet-B3": "dds_baselines/effnet/EN-B3_dds_8gpu.yaml",

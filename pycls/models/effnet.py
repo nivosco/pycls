@@ -10,6 +10,7 @@
 from pycls.core.config import cfg
 from pycls.models.blocks import (
     SE,
+    W_SE,
     activation,
     conv2d,
     conv2d_cx,
@@ -58,7 +59,7 @@ class EffHead(Module):
 class MBConv(Module):
     """Mobile inverted bottleneck block with SE."""
 
-    def __init__(self, w_in, exp_r, k, stride, se_r, w_out):
+    def __init__(self, w_in, exp_r, k, stride, se_r, wse, w_out):
         # Expansion, kxk dwise, BN, AF, SE, 1x1, BN, skip_connection
         super(MBConv, self).__init__()
         self.exp = None
@@ -70,7 +71,10 @@ class MBConv(Module):
         self.dwise = conv2d(w_exp, w_exp, k, stride=stride, groups=w_exp)
         self.dwise_bn = norm2d(w_exp)
         self.dwise_af = activation()
-        self.se = SE(w_exp, int(w_in * se_r))
+        if wse:
+            self.se = W_SE(w_exp, int(w_in * se_r))
+        else:
+            self.se = SE(w_exp, int(w_in * se_r))
         self.lin_proj = conv2d(w_exp, w_out, 1)
         self.lin_proj_bn = norm2d(w_out)
         self.has_skip = stride == 1 and w_in == w_out
@@ -87,14 +91,17 @@ class MBConv(Module):
         return f_x
 
     @staticmethod
-    def complexity(cx, w_in, exp_r, k, stride, se_r, w_out):
+    def complexity(cx, w_in, exp_r, k, stride, se_r, wse, w_out):
         w_exp = int(w_in * exp_r)
         if w_exp != w_in:
             cx = conv2d_cx(cx, w_in, w_exp, 1)
             cx = norm2d_cx(cx, w_exp)
         cx = conv2d_cx(cx, w_exp, w_exp, k, stride=stride, groups=w_exp)
         cx = norm2d_cx(cx, w_exp)
-        cx = SE.complexity(cx, w_exp, int(w_in * se_r))
+        if wse:
+            cx = W_SE.complexity(cx, w_exp, int(w_in * se_r))
+        else:
+            cx = SE.complexity(cx, w_exp, int(w_in * se_r))
         cx = conv2d_cx(cx, w_exp, w_out, 1)
         cx = norm2d_cx(cx, w_out)
         return cx
@@ -103,10 +110,10 @@ class MBConv(Module):
 class EffStage(Module):
     """EfficientNet stage."""
 
-    def __init__(self, w_in, exp_r, k, stride, se_r, w_out, d):
+    def __init__(self, w_in, exp_r, k, stride, se_r, wse, w_out, d):
         super(EffStage, self).__init__()
         for i in range(d):
-            block = MBConv(w_in, exp_r, k, stride, se_r, w_out)
+            block = MBConv(w_in, exp_r, k, stride, se_r, wse, w_out)
             self.add_module("b{}".format(i + 1), block)
             stride, w_in = 1, w_out
 
@@ -116,9 +123,9 @@ class EffStage(Module):
         return x
 
     @staticmethod
-    def complexity(cx, w_in, exp_r, k, stride, se_r, w_out, d):
+    def complexity(cx, w_in, exp_r, k, stride, se_r, wse, w_out, d):
         for _ in range(d):
-            cx = MBConv.complexity(cx, w_in, exp_r, k, stride, se_r, w_out)
+            cx = MBConv.complexity(cx, w_in, exp_r, k, stride, se_r, wse, w_out)
             stride, w_in = 1, w_out
         return cx
 
@@ -156,6 +163,7 @@ class EffNet(Module):
             "exp_rs": cfg.EN.EXP_RATIOS,
             "se_r": cfg.EN.SE_R,
             "ss": cfg.EN.STRIDES,
+            "wse": cfg.EN.W_SE,
             "ks": cfg.EN.KERNELS,
             "hw": cfg.EN.HEAD_W,
             "nc": cfg.MODEL.NUM_CLASSES,
@@ -164,13 +172,13 @@ class EffNet(Module):
     def __init__(self, params=None):
         super(EffNet, self).__init__()
         p = EffNet.get_params() if not params else params
-        vs = ["sw", "ds", "ws", "exp_rs", "se_r", "ss", "ks", "hw", "nc"]
-        sw, ds, ws, exp_rs, se_r, ss, ks, hw, nc = [p[v] for v in vs]
+        vs = ["sw", "ds", "ws", "exp_rs", "se_r", "ss", "wse", "ks", "hw", "nc"]
+        sw, ds, ws, exp_rs, se_r, ss, wse, ks, hw, nc = [p[v] for v in vs]
         stage_params = list(zip(ds, ws, exp_rs, ss, ks))
         self.stem = StemIN(3, sw)
         prev_w = sw
         for i, (d, w, exp_r, stride, k) in enumerate(stage_params):
-            stage = EffStage(prev_w, exp_r, k, stride, se_r, w, d)
+            stage = EffStage(prev_w, exp_r, k, stride, se_r, wse, w, d)
             self.add_module("s{}".format(i + 1), stage)
             prev_w = w
         self.head = EffHead(prev_w, hw, nc)
@@ -185,13 +193,13 @@ class EffNet(Module):
     def complexity(cx, params=None):
         """Computes model complexity (if you alter the model, make sure to update)."""
         p = EffNet.get_params() if not params else params
-        vs = ["sw", "ds", "ws", "exp_rs", "se_r", "ss", "ks", "hw", "nc"]
-        sw, ds, ws, exp_rs, se_r, ss, ks, hw, nc = [p[v] for v in vs]
+        vs = ["sw", "ds", "ws", "exp_rs", "se_r", "ss", "wse", "ks", "hw", "nc"]
+        sw, ds, ws, exp_rs, se_r, ss, wse, ks, hw, nc = [p[v] for v in vs]
         stage_params = list(zip(ds, ws, exp_rs, ss, ks))
         cx = StemIN.complexity(cx, 3, sw)
         prev_w = sw
         for d, w, exp_r, stride, k in stage_params:
-            cx = EffStage.complexity(cx, prev_w, exp_r, k, stride, se_r, w, d)
+            cx = EffStage.complexity(cx, prev_w, exp_r, k, stride, se_r, wse, w, d)
             prev_w = w
         cx = EffHead.complexity(cx, prev_w, hw, nc)
         return cx

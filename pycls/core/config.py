@@ -175,6 +175,9 @@ _C.EN.EXP_RATIOS = []
 # Squeeze-and-Excitation (SE) ratio
 _C.EN.SE_R = 0.25
 
+# Wether to enable W_SE or regular SE
+_C.EN.W_SE = False
+
 # Strides for each stage (applies to the first block of each stage)
 _C.EN.STRIDES = []
 
