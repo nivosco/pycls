@@ -62,6 +62,7 @@ class RegNet(AnyNet):
             "se_gap_dw": cfg.REGNET.SE_GAP_DW_ON,
             "w_se": cfg.REGNET.W_SE_ON,
             "w1_se": cfg.REGNET.W1_SE_ON,
+            "w13_se": cfg.REGNET.W13_SE_ON,
             "num_classes": cfg.MODEL.NUM_CLASSES,
         }
 
