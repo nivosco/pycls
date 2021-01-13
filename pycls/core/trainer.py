@@ -21,6 +21,7 @@ import pycls.core.meters as meters
 import pycls.core.net as net
 import pycls.core.optimizer as optim
 import pycls.datasets.loader as data_loader
+from pycls.models.model_zoo import regnety
 import torch
 import torch.cuda.amp as amp
 from pycls.core.config import cfg
@@ -72,6 +73,18 @@ def setup_model():
     return model
 
 
+def setup_teacher_model():
+    # Build the model
+    cur_device = torch.cuda.current_device()
+    model = regnety("RegNetY-800MF", pretrained=True).cuda(device=cur_device)
+    # Use multi-process data parallel model in the multi-gpu setting
+    if cfg.NUM_GPUS > 1:
+        # Make model replica operate on the current device
+        ddp = torch.nn.parallel.DistributedDataParallel
+        model = ddp(module=model, device_ids=[cur_device], output_device=cur_device)
+    return model
+
+
 def train_epoch(loader, model, loss_fun, optimizer, scaler, meter, cur_epoch):
     """Performs one epoch of training."""
     # Shuffle the data
@@ -86,6 +99,50 @@ def train_epoch(loader, model, loss_fun, optimizer, scaler, meter, cur_epoch):
     for cur_iter, (inputs, labels) in enumerate(loader):
         # Transfer the data to the current GPU device
         inputs, labels = inputs.cuda(), labels.cuda(non_blocking=True)
+        # Convert labels to smoothed one-hot vector
+        labels_one_hot = net.smooth_one_hot_labels(labels)
+        # Apply mixup to the batch (no effect if mixup alpha is 0)
+        inputs, labels_one_hot, labels = net.mixup(inputs, labels_one_hot)
+        # Perform the forward pass and compute the loss
+        with amp.autocast(enabled=cfg.TRAIN.MIXED_PRECISION):
+            preds = model(inputs)
+            loss = loss_fun(preds, labels_one_hot)
+        # Perform the backward pass and update the parameters
+        optimizer.zero_grad()
+        scaler.scale(loss).backward()
+        scaler.step(optimizer)
+        scaler.update()
+        # Compute the errors
+        top1_err, top5_err = meters.topk_errors(preds, labels, [1, 5])
+        # Combine the stats across the GPUs (no reduction if 1 GPU used)
+        loss, top1_err, top5_err = dist.scaled_all_reduce([loss, top1_err, top5_err])
+        # Copy the stats from GPU to CPU (sync point)
+        loss, top1_err, top5_err = loss.item(), top1_err.item(), top5_err.item()
+        meter.iter_toc()
+        # Update and log stats
+        mb_size = inputs.size(0) * cfg.NUM_GPUS
+        meter.update_stats(top1_err, top5_err, loss, lr, mb_size)
+        meter.log_iter_stats(cur_epoch, cur_iter)
+        meter.iter_tic()
+    # Log epoch stats
+    meter.log_epoch_stats(cur_epoch)
+
+
+def train_kd_epoch(loader, model, loss_fun, optimizer, scaler, meter, teacher, cur_epoch):
+    """Performs one epoch of training."""
+    # Shuffle the data
+    data_loader.shuffle(loader, cur_epoch)
+    # Update the learning rate
+    lr = optim.get_epoch_lr(cur_epoch)
+    optim.set_lr(optimizer, lr)
+    # Enable training mode
+    model.train()
+    meter.reset()
+    meter.iter_tic()
+    for cur_iter, (inputs, labels) in enumerate(loader):
+        # Transfer the data to the current GPU device
+        inputs = inputs.cuda()
+        labels = torch.argmax(teacher(inputs), dim=-1)
         # Convert labels to smoothed one-hot vector
         labels_one_hot = net.smooth_one_hot_labels(labels)
         # Apply mixup to the batch (no effect if mixup alpha is 0)
@@ -140,6 +197,57 @@ def test_epoch(loader, model, meter, cur_epoch):
         meter.iter_tic()
     # Log epoch stats
     meter.log_epoch_stats(cur_epoch)
+
+
+def train_kd_model():
+    """Trains the model."""
+    # Setup training/testing environment
+    setup_env()
+    # Construct the model, loss_fun, and optimizer
+    model = setup_model()
+    loss_fun = builders.build_loss_fun().cuda()
+    optimizer = optim.construct_optimizer(model)
+    # Load checkpoint or initial weights
+    start_epoch = 0
+    if cfg.TRAIN.AUTO_RESUME and cp.has_checkpoint():
+        file = cp.get_last_checkpoint()
+        epoch = cp.load_checkpoint(file, model, optimizer)
+        logger.info("Loaded checkpoint from: {}".format(file))
+        start_epoch = epoch + 1
+    elif cfg.TRAIN.WEIGHTS:
+        cp.load_checkpoint(cfg.TRAIN.WEIGHTS, model)
+        logger.info("Loaded initial weights from: {}".format(cfg.TRAIN.WEIGHTS))
+    # Create data loaders and meters
+    train_loader = data_loader.construct_train_loader()
+    test_loader = data_loader.construct_test_loader()
+    train_meter = meters.TrainMeter(len(train_loader))
+    test_meter = meters.TestMeter(len(test_loader))
+    # Create a GradScaler for mixed precision training
+    scaler = amp.GradScaler(enabled=cfg.TRAIN.MIXED_PRECISION)
+    # Compute model and loader timings
+    if start_epoch == 0 and cfg.PREC_TIME.NUM_ITER > 0:
+        benchmark.compute_time_full(model, loss_fun, train_loader, test_loader)
+    # Perform the training loop
+    logger.info("Start epoch: {}".format(start_epoch + 1))
+    best_err = np.inf
+    # Create the teacher model
+    teacher = setup_teacher_model()
+    for cur_epoch in range(start_epoch, cfg.OPTIM.MAX_EPOCH):
+        # Train for one epoch
+        params = (train_loader, model, loss_fun, optimizer, scaler, train_meter, teacher)
+        train_kd_epoch(*params, cur_epoch)
+        # Compute precise BN stats
+        if cfg.BN.USE_PRECISE_STATS:
+            net.compute_precise_bn_stats(model, train_loader)
+        # Evaluate the model
+        test_epoch(test_loader, model, test_meter, cur_epoch)
+        # Check if checkpoint is best so far (note: should checkpoint meters as well)
+        stats = test_meter.get_epoch_stats(cur_epoch)
+        best = stats["top1_err"] <= best_err
+        best_err = min(stats["top1_err"], best_err)
+        # Save a checkpoint
+        file = cp.save_checkpoint(model, optimizer, cur_epoch, best)
+        logger.info("Wrote checkpoint to: {}".format(file))
 
 
 def train_model():
