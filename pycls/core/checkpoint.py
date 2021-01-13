@@ -78,7 +78,7 @@ def save_checkpoint(model, optimizer, epoch, best):
     return checkpoint_file
 
 
-def load_checkpoint(checkpoint_file, model, optimizer=None, strict=True:
+def load_checkpoint(checkpoint_file, model, optimizer=None, strict=True):
     """Loads the checkpoint from the given file."""
     err_str = "Checkpoint '{}' not found"
     assert os.path.exists(checkpoint_file), err_str.format(checkpoint_file)

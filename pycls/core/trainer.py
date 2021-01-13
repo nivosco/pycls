@@ -215,7 +215,7 @@ def train_kd_model():
         logger.info("Loaded checkpoint from: {}".format(file))
         start_epoch = epoch + 1
     elif cfg.TRAIN.WEIGHTS:
-        cp.load_checkpoint(cfg.TRAIN.WEIGHTS, model)
+        cp.load_checkpoint(cfg.TRAIN.WEIGHTS, model, strict=False)
         logger.info("Loaded initial weights from: {}".format(cfg.TRAIN.WEIGHTS))
     # Create data loaders and meters
     train_loader = data_loader.construct_train_loader()
