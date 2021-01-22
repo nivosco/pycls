@@ -115,6 +115,9 @@ _C.ANYNET.SE_R = 0.25
 # SE ratio for non-SE
 _C.ANYNET.SE1_R = 0.5
 
+# wSE idx to replace with regular SE
+_C.ANYNET.W_SE_IDX = []
+
 # ---------------------------------- RegNet options ---------------------------------- #
 _C.REGNET = CfgNode()
 
@@ -141,6 +144,7 @@ _C.REGNET.W1_SE_ON = False
 _C.REGNET.W13_SE_ON = False
 _C.REGNET.SE_R = 0.25
 _C.REGNET.SE1_R = 0.5
+_C.REGNET.W_SE_IDX = []
 
 # Depth
 _C.REGNET.DEPTH = 10

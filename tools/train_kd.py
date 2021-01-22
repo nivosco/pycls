@@ -23,19 +23,19 @@ import pycls.datasets.loader as data_loader
 
 WEIGHTS_FILE = "/tmp/pycls-download-cache/dds_baselines/160906567/RegNetY-800MF_dds_8gpu.pyth"
 DATA_PATH = "/local/data/imagenet_raw/"
-STUDENT = "RegNetY-800MF_W25_SE"
+STUDENT = "RegNetY-800MF_W25_SE_P"
 TEACHER = "RegNetY-800MF"
 NUM_WORKERS = 8
-EPOCHS = 50
+EPOCHS = 30
 BASE_LEARINING_RATE = 1e-4
 BATCH_SIZE = 64
 STEPS = 300 # Using total of (STEPS * BATCH_SIZE) images for training each epoch
 
 
 def update_lr(optimizer, epoch):
-    if epoch > EPOCHS * 0.8:
+    if epoch > EPOCHS * 0.75:
         new_lr = BASE_LEARINING_RATE * 0.01
-    elif epoch > EPOCHS * 0.6:
+    elif epoch > EPOCHS * 0.5:
         new_lr = BASE_LEARINING_RATE * 0.1
     else:
         new_lr = BASE_LEARINING_RATE
@@ -60,10 +60,11 @@ def eval(model_weights, loader):
         top1_err, top5_err = meters.topk_errors(preds, labels, [1, 5])
         top1_err, top5_err = top1_err.item(), top5_err.item()
         meter.update_stats(top1_err, top5_err, inputs.size(0))
-        print("iter {}/{}".format(cur_iter + 1, len(loader)))
+        if (cur_iter + 1) % 50 == 0:
+            print("iter {}/{}".format(cur_iter + 1, len(loader)))
     print("Total evaluation time: {}s".format(round(time.time() - start_time)))
     print("**************************************")
-    print("Top1 accuracy: {}".format(100 - meter.get_epoch_stats(0)["min_top1_err"]))
+    print("Top1 accuracy: {:.2f}".format(100 - meter.get_epoch_stats(0)["min_top1_err"]))
     print("**************************************")
 
 
@@ -184,7 +185,7 @@ def main(weights=None):
     loss_fn = lambda x, y: torch.sum(torch.pow(x - y, 2))
 
     # run training and evaluation after training
-    kd_train(teacher, student, loss_fn, dataloader_train, dataloader_test, only_se=True)
+    #kd_train(teacher, student, loss_fn, dataloader_train, dataloader_test, only_se=True, run_eval=True)
     kd_train(teacher, student, loss_fn, dataloader_train, dataloader_test, run_eval=True)
 
 

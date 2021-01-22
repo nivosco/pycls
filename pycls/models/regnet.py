@@ -56,6 +56,7 @@ class RegNet(AnyNet):
             "group_ws": gs,
             "se_r": cfg.REGNET.SE_R if cfg.REGNET.SE_ON else 0,
             "se1_r": cfg.REGNET.SE1_R,
+            "w_se_idx": cfg.REGNET.W_SE_IDX,
             "c_se": cfg.REGNET.C_SE_ON,
             "se_gap": cfg.REGNET.SE_GAP_ON,
             "se_gap1": cfg.REGNET.SE_GAP1_ON,
