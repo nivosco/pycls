@@ -318,7 +318,7 @@ class AnyStage(Module):
     def __init__(self, w_in, w_out, stride, d, block_fun, params):
         super(AnyStage, self).__init__()
         for i in range(d):
-            params["block_idx"] = self.get_idx(params, i)
+            params["block_idx"] = get_idx(params, i)
             block = block_fun(w_in, w_out, stride, params)
             self.add_module("b{}".format(i + 1), block)
             stride, w_in = 1, w_out
@@ -331,16 +331,16 @@ class AnyStage(Module):
     @staticmethod
     def complexity(cx, w_in, w_out, stride, d, block_fun, params):
         for i in range(d):
-            params["block_idx"] = self.get_idx(params, i)
+            params["block_idx"] = get_idx(params, i)
             cx = block_fun.complexity(cx, w_in, w_out, stride, params)
             stride, w_in = 1, w_out
         return cx
 
-    def get_idx(self, params, block_idx):
-        idx = 0
-        for b in range(params['stage']):
-            idx += params['depth'][b]
-        return idx + block_idx
+def get_idx(params, block_idx):
+    idx = 0
+    for b in range(params['stage']):
+        idx += params['depth'][b]
+    return idx + block_idx
 
 
 class AnyNet(Module):
@@ -401,7 +401,7 @@ class AnyNet(Module):
         cx = stem_fun.complexity(cx, 3, p["stem_w"])
         prev_w = p["stem_w"]
         keys = ["depths", "widths", "strides", "bot_muls", "group_ws"]
-        for d, w, s, b, g in zip(*[p[k] for k in keys]):
+        for i, (d, w, s, b, g) in enumerate(zip(*[p[k] for k in keys])):
             params = {"bot_mul": b, "group_w": g, "se_r": p["se_r"], "se1_r": p["se1_r"], "c_se": p["c_se"], "w_se": p["w_se"], "w1_se": p["w1_se"], "w13_se": p["w13_se"], "se_gap": p["se_gap"], "se_gap1": p["se_gap1"], "se_gap_dw": p["se_gap_dw"], "w_se_idx": p["w_se_idx"], "stage": i, "depth": p['depths']}
             cx = AnyStage.complexity(cx, prev_w, w, s, d, block_fun, params)
             prev_w = w
