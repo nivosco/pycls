@@ -178,7 +178,7 @@ class BottleneckTransform(Module):
             if params['block_idx'] in params['w_se_idx']:
                 self.se = SE(w_b, w_se1)
             else:
-                self.w_se = W_SE(w_b, w_se1)
+                self.w_se = W_SE(w_b, w_se1, params["w_se_add"])
         self.w1_se = W1_SE(w_b, w_se1) if params['w1_se'] else None
         self.w13_se = W13_SE(w_b, w_se1) if params['w13_se'] else None
         self.se_gap = SE_GAP(w_b, w_se1) if params['se_gap'] else None
@@ -361,6 +361,7 @@ class AnyNet(Module):
             "se_r": cfg.ANYNET.SE_R if cfg.ANYNET.SE_ON else 0,
             "se1_r": cfg.ANYNET.SE1_R,
             "w_se_idx": cfg.ANYNET.W_SE_IDX,
+            "w_se_add": cfg.ANYNET.W_SE_ADD_ON,
             "c_se": cfg.ANYNET.C_SE_ON,
             "w_se": cfg.ANYNET.W_SE_ON,
             "w1_se": cfg.ANYNET.W1_SE_ON,
@@ -380,7 +381,7 @@ class AnyNet(Module):
         prev_w = p["stem_w"]
         keys = ["depths", "widths", "strides", "bot_muls", "group_ws"]
         for i, (d, w, s, b, g) in enumerate(zip(*[p[k] for k in keys])):
-            params = {"bot_mul": b, "group_w": g, "se_r": p["se_r"], "se1_r": p["se1_r"], "c_se": p["c_se"], "w_se": p["w_se"], "w1_se": p["w1_se"], "w13_se": p["w13_se"], "se_gap": p["se_gap"], "se_gap1": p["se_gap1"], "se_gap_dw": p["se_gap_dw"], "w_se_idx": p["w_se_idx"], "stage": i, "depth": p["depths"]}
+            params = {"bot_mul": b, "group_w": g, "se_r": p["se_r"], "se1_r": p["se1_r"], "c_se": p["c_se"], "w_se": p["w_se"], "w1_se": p["w1_se"], "w13_se": p["w13_se"], "se_gap": p["se_gap"], "se_gap1": p["se_gap1"], "se_gap_dw": p["se_gap_dw"], "w_se_idx": p["w_se_idx"], "w_se_add": p["w_se_add"], "stage": i, "depth": p["depths"]}
             stage = AnyStage(prev_w, w, s, d, block_fun, params)
             self.add_module("s{}".format(i + 1), stage)
             prev_w = w
@@ -402,7 +403,7 @@ class AnyNet(Module):
         prev_w = p["stem_w"]
         keys = ["depths", "widths", "strides", "bot_muls", "group_ws"]
         for i, (d, w, s, b, g) in enumerate(zip(*[p[k] for k in keys])):
-            params = {"bot_mul": b, "group_w": g, "se_r": p["se_r"], "se1_r": p["se1_r"], "c_se": p["c_se"], "w_se": p["w_se"], "w1_se": p["w1_se"], "w13_se": p["w13_se"], "se_gap": p["se_gap"], "se_gap1": p["se_gap1"], "se_gap_dw": p["se_gap_dw"], "w_se_idx": p["w_se_idx"], "stage": i, "depth": p['depths']}
+            params = {"bot_mul": b, "group_w": g, "se_r": p["se_r"], "se1_r": p["se1_r"], "c_se": p["c_se"], "w_se": p["w_se"], "w1_se": p["w1_se"], "w13_se": p["w13_se"], "se_gap": p["se_gap"], "se_gap1": p["se_gap1"], "se_gap_dw": p["se_gap_dw"], "w_se_idx": p["w_se_idx"], "w_se_add": p["w_se_add"], "stage": i, "depth": p['depths']}
             cx = AnyStage.complexity(cx, prev_w, w, s, d, block_fun, params)
             prev_w = w
         cx = AnyHead.complexity(cx, prev_w, p["num_classes"])

@@ -264,9 +264,10 @@ class SE_GAP_DW(Module):
 class W_SE(Module):
     """Width Squeeze-and-Excitation (W_SE) block: AvgPool, 3x1, Act, 3x1, Sigmoid."""
 
-    def __init__(self, w_in, w_se):
+    def __init__(self, w_in, w_se, add=False):
         super(W_SE, self).__init__()
         self.avg_pool = wap2d(w_in)
+        self.add = add
         self.f_ex = nn.Sequential(
             nn.Conv1d(w_in, w_se, 3, stride=1, padding=1, bias=True),
             activation(),
@@ -275,7 +276,12 @@ class W_SE(Module):
         )
 
     def forward(self, x):
-        return x * torch.unsqueeze(self.f_ex(torch.squeeze(self.avg_pool(x))), -1)
+        sq = torch.squeeze(self.avg_pool(x))
+        ex = torch.unsqueeze(self.f_ex(sq), -1)
+        if self.add:
+            return x + ex
+        else:
+            return x * ex
 
     @staticmethod
     def complexity(cx, w_in, w_se):
