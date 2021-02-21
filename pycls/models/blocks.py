@@ -268,12 +268,19 @@ class W_SE(Module):
         super(W_SE, self).__init__()
         self.avg_pool = wap2d(w_in)
         self.add = add
-        self.f_ex = nn.Sequential(
-            nn.Conv1d(w_in, w_se, 3, stride=1, padding=1, bias=True),
-            activation(),
-            nn.Conv1d(w_se, w_in, 3, stride=1, padding=1, bias=True),
-            nn.Sigmoid(),
-        )
+        if self.add:
+            self.f_ex = nn.Sequential(
+                nn.Conv1d(w_in, w_se, 3, stride=1, padding=1, bias=True),
+                activation(),
+                nn.Conv1d(w_se, w_in, 3, stride=1, padding=1, bias=True),
+            )
+        else:
+            self.f_ex = nn.Sequential(
+                nn.Conv1d(w_in, w_se, 3, stride=1, padding=1, bias=True),
+                activation(),
+                nn.Conv1d(w_se, w_in, 3, stride=1, padding=1, bias=True),
+                nn.Sigmoid(),
+            )
 
     def forward(self, x):
         sq = torch.squeeze(self.avg_pool(x))
