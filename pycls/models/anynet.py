@@ -12,6 +12,7 @@ from pycls.models.blocks import (
     SE,
     C_SE,
     W_SE,
+    EW_SE,
     W1_SE,
     W13_SE,
     SE_GAP,
@@ -179,6 +180,7 @@ class BottleneckTransform(Module):
                 self.se = SE(w_b, w_se1)
             else:
                 self.w_se = W_SE(w_b, w_se1, params["w_se_add"])
+        self.ew_se = EW_SE(w_b, w_se1) if params['ew_se'] else None
         self.w1_se = W1_SE(w_b, w_se1) if params['w1_se'] else None
         self.w13_se = W13_SE(w_b, w_se1) if params['w13_se'] else None
         self.se_gap = SE_GAP(w_b, w_se1) if params['se_gap'] else None
@@ -210,6 +212,7 @@ class BottleneckTransform(Module):
                 cx = SE.complexity(cx, w_b, w_se1)
             else:
                 cx = W_SE.complexity(cx, w_b, w_se1)
+        cx = EW_SE.complexity(cx, w_b, w_se1) if params['ew_se'] else cx
         cx = W1_SE.complexity(cx, w_b, w_se1) if params['w1_se'] else cx
         cx = W13_SE.complexity(cx, w_b, w_se1) if params['w13_se'] else cx
         cx = SE_GAP.complexity(cx, w_b, w_se1) if params['se_gap'] else cx
@@ -364,6 +367,7 @@ class AnyNet(Module):
             "w_se_add": cfg.ANYNET.W_SE_ADD_ON,
             "c_se": cfg.ANYNET.C_SE_ON,
             "w_se": cfg.ANYNET.W_SE_ON,
+            "ew_se": cfg.ANYNET.EW_SE_ON,
             "w1_se": cfg.ANYNET.W1_SE_ON,
             "w13_se": cfg.ANYNET.W13_SE_ON,
             "se_gap": cfg.ANYNET.SE_GAP_ON,
@@ -381,7 +385,7 @@ class AnyNet(Module):
         prev_w = p["stem_w"]
         keys = ["depths", "widths", "strides", "bot_muls", "group_ws"]
         for i, (d, w, s, b, g) in enumerate(zip(*[p[k] for k in keys])):
-            params = {"bot_mul": b, "group_w": g, "se_r": p["se_r"], "se1_r": p["se1_r"], "c_se": p["c_se"], "w_se": p["w_se"], "w1_se": p["w1_se"], "w13_se": p["w13_se"], "se_gap": p["se_gap"], "se_gap1": p["se_gap1"], "se_gap_dw": p["se_gap_dw"], "w_se_idx": p["w_se_idx"], "w_se_add": p["w_se_add"], "stage": i, "depth": p["depths"]}
+            params = {"bot_mul": b, "group_w": g, "se_r": p["se_r"], "se1_r": p["se1_r"], "c_se": p["c_se"], "w_se": p["w_se"], "w1_se": p["w1_se"], "w13_se": p["w13_se"], "se_gap": p["se_gap"], "se_gap1": p["se_gap1"], "se_gap_dw": p["se_gap_dw"], "w_se_idx": p["w_se_idx"], "w_se_add": p["w_se_add"], "stage": i, "depth": p["depths"], "ew_se": p["ew_se"]}
             stage = AnyStage(prev_w, w, s, d, block_fun, params)
             self.add_module("s{}".format(i + 1), stage)
             prev_w = w
@@ -403,7 +407,7 @@ class AnyNet(Module):
         prev_w = p["stem_w"]
         keys = ["depths", "widths", "strides", "bot_muls", "group_ws"]
         for i, (d, w, s, b, g) in enumerate(zip(*[p[k] for k in keys])):
-            params = {"bot_mul": b, "group_w": g, "se_r": p["se_r"], "se1_r": p["se1_r"], "c_se": p["c_se"], "w_se": p["w_se"], "w1_se": p["w1_se"], "w13_se": p["w13_se"], "se_gap": p["se_gap"], "se_gap1": p["se_gap1"], "se_gap_dw": p["se_gap_dw"], "w_se_idx": p["w_se_idx"], "w_se_add": p["w_se_add"], "stage": i, "depth": p['depths']}
+            params = {"bot_mul": b, "group_w": g, "se_r": p["se_r"], "se1_r": p["se1_r"], "c_se": p["c_se"], "w_se": p["w_se"], "w1_se": p["w1_se"], "w13_se": p["w13_se"], "se_gap": p["se_gap"], "se_gap1": p["se_gap1"], "se_gap_dw": p["se_gap_dw"], "w_se_idx": p["w_se_idx"], "w_se_add": p["w_se_add"], "stage": i, "depth": p['depths'], "ew_se": p["ew_se"]}
             cx = AnyStage.complexity(cx, prev_w, w, s, d, block_fun, params)
             prev_w = w
         cx = AnyHead.complexity(cx, prev_w, p["num_classes"])

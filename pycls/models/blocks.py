@@ -69,13 +69,18 @@ def activation():
 
 def conv2d_cx(cx, w_in, w_out, k, *, stride=1, groups=1, bias=False):
     """Accumulates complexity of conv2d into cx = (h, w, flops, params, acts)."""
-    assert k % 2 == 1, "Only odd size kernels supported to avoid padding issues."
     h, w, flops, params, acts = cx["h"], cx["w"], cx["flops"], cx["params"], cx["acts"]
-    h, w = (h - 1) // stride + 1, (w - 1) // stride + 1
-    flops += k * k * w_in * w_out * h * w // groups + (w_out if bias else 0)
-    params += k * k * w_in * w_out // groups + (w_out if bias else 0)
-    acts += w_in * w * k
-    return {"h": h, "w": w, "flops": flops, "params": params, "acts": acts}
+    if type(k) == tuple:
+        flops += k[0] * k[1] * w_in  * h + 1
+        params += k[0] * k[1] + 1
+        return {"h": h, "w": w, "flops": flops, "params": params, "acts": acts}
+    else:
+        assert k % 2 == 1, "Only odd size kernels supported to avoid padding issues."
+        h, w = (h - 1) // stride + 1, (w - 1) // stride + 1
+        flops += k * k * w_in * w_out * h * w // groups + (w_out if bias else 0)
+        params += k * k * w_in * w_out // groups + (w_out if bias else 0)
+        acts += w_in * w * k
+        return {"h": h, "w": w, "flops": flops, "params": params, "acts": acts}
 
 
 def conv1d_cx(cx, w_in, w_out, k, *, stride=1, groups=1, bias=False):
@@ -259,6 +264,32 @@ class SE_GAP_DW(Module):
         cx = conv2d_cx(cx, w_in, w_in, 3, groups=w_in, bias=True)
         cx["h"], cx["w"] = h, w
         return cx
+
+
+class EW_SE(Module):
+    """Efficient Width Squeeze-and-Excitation (EW_SE) block: AvgPool, 3x1, Act, 3x1, Sigmoid."""
+
+    def __init__(self, w_in, w_se):
+        super(EW_SE, self).__init__()
+        self.avg_pool = wap2d(w_in)
+        self.f_ex = nn.Sequential(
+            nn.Conv2d(1, 1, (7, 31), stride=1, padding=(3, 15), bias=True),
+            nn.Sigmoid(),
+        )
+
+    def forward(self, x):
+        sq = torch.unsqueeze(torch.transpose(torch.squeeze(self.avg_pool(x), axis=-1), -1, -2), 1)
+        ex = torch.transpose(self.f_ex(sq), -1, -3)
+        return x * ex
+
+    @staticmethod
+    def complexity(cx, w_in, w_se):
+        h, w = cx["h"], cx["w"]
+        cx = wap2d_cx(cx, w_in)
+        cx = conv2d_cx(cx, w_in, w_se, (7,31), bias=True)
+        cx["h"], cx["w"] = h, w
+        return cx
+
 
 
 class W_SE(Module):

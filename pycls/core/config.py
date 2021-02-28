@@ -103,6 +103,9 @@ _C.ANYNET.SE_GAP_DW_ON = False
 # Whether wSE is enabled for res_bottleneck_block
 _C.ANYNET.W_SE_ON = False
 
+# Whether ewSE is enabled for res_bottleneck_block (efficient wSE)
+_C.ANYNET.EW_SE_ON = False
+
 # Whether wSE add is enabled for res_bottleneck_block
 _C.ANYNET.W_SE_ADD_ON = False
 
@@ -143,6 +146,7 @@ _C.REGNET.SE_GAP_ON = False
 _C.REGNET.SE_GAP1_ON = False
 _C.REGNET.SE_GAP_DW_ON = False
 _C.REGNET.W_SE_ON = False
+_C.REGNET.EW_SE_ON = False
 _C.REGNET.W_SE_ADD_ON = False
 _C.REGNET.W1_SE_ON = False
 _C.REGNET.W13_SE_ON = False
