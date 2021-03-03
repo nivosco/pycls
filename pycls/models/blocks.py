@@ -271,22 +271,29 @@ class EW_SE(Module):
 
     def __init__(self, w_in, w_se):
         super(EW_SE, self).__init__()
-        self.avg_pool = wap2d(w_in)
+        self.avg_pool = None
         self.f_ex = nn.Sequential(
-            nn.Conv2d(1, 1, (7, 31), stride=1, padding=(3, 15), bias=True),
+            nn.Conv2d(w_in, w_se, 1, stride=1, padding=0, bias=True),
+            activation(),
+            nn.Conv2d(w_se, w_in, 1, stride=1, padding=0, bias=True),
             nn.Sigmoid(),
         )
 
     def forward(self, x):
-        sq = torch.unsqueeze(torch.transpose(torch.squeeze(self.avg_pool(x), axis=-1), -1, -2), 1)
-        ex = torch.transpose(self.f_ex(sq), -1, -3)
+        if self.avg_pool is None:
+            w = int(x.shape[-1])
+            c = int(x.shape[1])
+            self.avg_pool = nn.AvgPool2d((5,w), stride=(1,w), padding=(2,0))
+        sq = self.avg_pool(x)
+        ex = self.f_ex(sq)
         return x * ex
 
     @staticmethod
     def complexity(cx, w_in, w_se):
         h, w = cx["h"], cx["w"]
         cx = wap2d_cx(cx, w_in)
-        cx = conv2d_cx(cx, w_in, w_se, (7,31), bias=True)
+        cx = conv2d_cx(cx, w_in, w_se, 1, bias=True)
+        cx = conv2d_cx(cx, w_in, w_se, 1, bias=True)
         cx["h"], cx["w"] = h, w
         return cx
 
