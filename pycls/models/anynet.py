@@ -175,12 +175,12 @@ class BottleneckTransform(Module):
         self.b_af = activation()
         self.se = SE(w_b, w_se) if w_se else None
         self.c_se = C_SE(w_b, w_se) if params['c_se'] else None
-        if params['w_se']:
+        self.w_se = W_SE(w_b, w_se1, params["w_se_add"]) if params['w_se'] else None
+        if params['ew_se']:
             if params['block_idx'] in params['w_se_idx']:
                 self.se = SE(w_b, w_se1)
             else:
-                self.w_se = W_SE(w_b, w_se1, params["w_se_add"])
-        self.ew_se = EW_SE(w_b, w_se1) if params['ew_se'] else None
+                self.ew_se = EW_SE(w_b, w_se1)
         self.w1_se = W1_SE(w_b, w_se1) if params['w1_se'] else None
         self.w13_se = W13_SE(w_b, w_se1) if params['w13_se'] else None
         self.se_gap = SE_GAP(w_b, w_se1) if params['se_gap'] else None
@@ -207,12 +207,12 @@ class BottleneckTransform(Module):
         cx = norm2d_cx(cx, w_b)
         cx = SE.complexity(cx, w_b, w_se) if w_se else cx
         cx = C_SE.complexity(cx, w_b, w_se) if params['c_se'] else cx
-        if params['w_se']:
+        cx = W_SE.complexity(cx, w_b, w_se1) if params['w_se'] else cx
+        if params['ew_se']:
             if params['block_idx'] in params['w_se_idx']:
                 cx = SE.complexity(cx, w_b, w_se1)
             else:
-                cx = W_SE.complexity(cx, w_b, w_se1)
-        cx = EW_SE.complexity(cx, w_b, w_se1) if params['ew_se'] else cx
+                cx = EW_SE.complexity(cx, w_b, w_se1)
         cx = W1_SE.complexity(cx, w_b, w_se1) if params['w1_se'] else cx
         cx = W13_SE.complexity(cx, w_b, w_se1) if params['w13_se'] else cx
         cx = SE_GAP.complexity(cx, w_b, w_se1) if params['se_gap'] else cx

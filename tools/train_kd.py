@@ -23,7 +23,7 @@ import pycls.datasets.loader as data_loader
 
 WEIGHTS_FILE = "/tmp/pycls-download-cache/dds_baselines/160906567/RegNetY-800MF_dds_8gpu.pyth"
 DATA_PATH = "/local/data/imagenet_raw/"
-STUDENT = "RegNetY-800MF_W25_SE_P"
+STUDENT = "RegNetY-800MF_W25_ewSE"
 TEACHER = "RegNetY-800MF"
 NUM_WORKERS = 8
 EPOCHS = 30
@@ -46,11 +46,11 @@ def update_lr(optimizer, epoch):
     return new_lr
 
 
-def eval(model_weights, loader):
-    print("Start evaluation...")
+def eval(model_weights, loader, replace=None):
+    print("Start evaluation on {} with weights from {}...".format(STUDENT, model_weights))
     meter = meters.TestMeter(len(loader))
     model = regnety(STUDENT, pretrained=False).cuda()
-    cp.load_checkpoint(model_weights, model)
+    cp.load_checkpoint(model_weights, model, replace=replace)
     model.eval()
     meter.reset()
     start_time = time.time()
@@ -162,35 +162,42 @@ def kd_train(teacher, student, loss_fn, dataloader_train, dataloader_test, only_
 
 
 
-def main(weights=None):
+def main(weights=None, replace=None):
 
     # run only evaluate if weights are provided
     if weights:
+        print("Run Evaluation w/o Training")
         dataloader_test = create_dataloader(DATA_PATH, "val")
-        eval(weights, dataloader_test)
+        eval(weights, dataloader_test, replace)
         return
 
     # Build models
+    print("Build teacher/student models ({},{})".format(TEACHER, STUDENT))
     teacher = regnety(TEACHER, pretrained=True).cuda()
     student = regnety(STUDENT, pretrained=False).cuda()
 
     # load students weights with the possible weights of the teacher
-    cp.load_checkpoint(WEIGHTS_FILE, student, strict=False)
+    print("Load Teacher weights from: {}".format(WEIGHTS_FILE))
+    cp.load_checkpoint(WEIGHTS_FILE, student, replace=replace)
 
     # Create data loaders
+    print("Create dataloaders")
     dataloader_train = create_dataloader(DATA_PATH, "train")
     dataloader_test = create_dataloader(DATA_PATH, "val")
 
     # loss
+    print("Create Loss function")
     loss_fn = lambda x, y: torch.sum(torch.pow(x - y, 2))
 
     # run training and evaluation after training
-    #kd_train(teacher, student, loss_fn, dataloader_train, dataloader_test, only_se=True, run_eval=True)
+    print("Start KD training")
+    #kd_train(teacher, student, loss_fn, dataloader_train, dataloader_test, only_se=True)
     kd_train(teacher, student, loss_fn, dataloader_train, dataloader_test, run_eval=True)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--weights", help="if provided will only run eval", default=None, type=str)
+    parser.add_argument("--replace", help="if provided will replace the string in the dict ckpt", default=None, type=str)
     args = parser.parse_args()
-    main(args.weights)
+    main(args.weights, args.replace)

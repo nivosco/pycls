@@ -14,6 +14,7 @@ import pycls.core.distributed as dist
 import torch
 from pycls.core.config import cfg
 from pycls.core.net import unwrap_model
+from collections import OrderedDict
 
 
 # Common prefix for checkpoint file names
@@ -78,12 +79,14 @@ def save_checkpoint(model, optimizer, epoch, best):
     return checkpoint_file
 
 
-def load_checkpoint(checkpoint_file, model, optimizer=None, strict=True):
+def load_checkpoint(checkpoint_file, model, optimizer=None, replace=None):
     """Loads the checkpoint from the given file."""
     err_str = "Checkpoint '{}' not found"
     assert os.path.exists(checkpoint_file), err_str.format(checkpoint_file)
     checkpoint = torch.load(checkpoint_file, map_location="cpu")
-    unwrap_model(model).load_state_dict(checkpoint["model_state"], strict=strict)
+    if replace is not None:
+        checkpoint["model_state"] = OrderedDict([(k.replace('se', replace), v) if 'se' in k else (k, v) for k, v in checkpoint["model_state"].items()])
+    unwrap_model(model).load_state_dict(checkpoint["model_state"])
     optimizer.load_state_dict(checkpoint["optimizer_state"]) if optimizer else ()
     return checkpoint["epoch"]
 

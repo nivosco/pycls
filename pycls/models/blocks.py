@@ -283,10 +283,10 @@ class EW_SE(Module):
         if self.avg_pool is None:
             w = int(x.shape[-1])
             c = int(x.shape[1])
-            self.avg_pool = nn.AvgPool2d((5,w), stride=(1,w), padding=(2,0))
+            self.avg_pool = nn.AvgPool2d((7, w), stride=(7, w), padding=0, ceil_mode=True)
         sq = self.avg_pool(x)
         ex = self.f_ex(sq)
-        return x * ex
+        return x * torch.repeat_interleave(ex, 7, dim=-2)[:,:,:int(x.shape[-2]),:]
 
     @staticmethod
     def complexity(cx, w_in, w_se):
