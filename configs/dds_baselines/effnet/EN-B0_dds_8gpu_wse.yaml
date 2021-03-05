@@ -3,7 +3,7 @@ MODEL:
   NUM_CLASSES: 1000
   ACTIVATION_FUN: silu
 EN:
-  W_SE: True
+  EW_SE: True
   STEM_W: 32
   STRIDES: [1, 2, 2, 2, 1, 2, 1]
   DEPTHS: [1, 2, 2, 3, 3, 4, 1]

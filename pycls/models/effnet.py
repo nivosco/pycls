@@ -10,7 +10,7 @@
 from pycls.core.config import cfg
 from pycls.models.blocks import (
     SE,
-    W_SE,
+    EW_SE,
     activation,
     conv2d,
     conv2d_cx,
@@ -72,7 +72,7 @@ class MBConv(Module):
         self.dwise_bn = norm2d(w_exp)
         self.dwise_af = activation()
         if wse:
-            self.se = W_SE(w_exp, int(w_in * se_r))
+            self.se = EW_SE(w_exp, int(w_in * se_r))
         else:
             self.se = SE(w_exp, int(w_in * se_r))
         self.lin_proj = conv2d(w_exp, w_out, 1)
@@ -99,7 +99,7 @@ class MBConv(Module):
         cx = conv2d_cx(cx, w_exp, w_exp, k, stride=stride, groups=w_exp)
         cx = norm2d_cx(cx, w_exp)
         if wse:
-            cx = W_SE.complexity(cx, w_exp, int(w_in * se_r))
+            cx = EW_SE.complexity(cx, w_exp, int(w_in * se_r))
         else:
             cx = SE.complexity(cx, w_exp, int(w_in * se_r))
         cx = conv2d_cx(cx, w_exp, w_out, 1)
@@ -163,7 +163,7 @@ class EffNet(Module):
             "exp_rs": cfg.EN.EXP_RATIOS,
             "se_r": cfg.EN.SE_R,
             "ss": cfg.EN.STRIDES,
-            "wse": cfg.EN.W_SE,
+            "wse": cfg.EN.EW_SE,
             "ks": cfg.EN.KERNELS,
             "hw": cfg.EN.HEAD_W,
             "nc": cfg.MODEL.NUM_CLASSES,
