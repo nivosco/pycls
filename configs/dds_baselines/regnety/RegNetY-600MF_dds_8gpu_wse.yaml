@@ -2,9 +2,10 @@ MODEL:
   TYPE: regnet
   NUM_CLASSES: 1000
 REGNET:
-  W_SE_ON: True
+  EW_SE_ON: True
   SE_ON: False
   SE1_R: 0.25
+  W_SE_IDX: []
   DEPTH: 15
   W0: 48
   WA: 32.54
