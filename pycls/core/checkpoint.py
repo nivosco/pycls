@@ -85,7 +85,7 @@ def load_checkpoint(checkpoint_file, model, optimizer=None, replace=None):
     assert os.path.exists(checkpoint_file), err_str.format(checkpoint_file)
     checkpoint = torch.load(checkpoint_file, map_location="cpu")
     if replace is not None:
-        checkpoint["model_state"] = OrderedDict([(k.replace('se', replace), v) if 'se' in k else (k, v) for k, v in checkpoint["model_state"].items()])
+        checkpoint["model_state"] = OrderedDict([(k.replace('se', replace), v) if '.se.' in k else (k, v) for k, v in checkpoint["model_state"].items()])
     unwrap_model(model).load_state_dict(checkpoint["model_state"])
     optimizer.load_state_dict(checkpoint["optimizer_state"]) if optimizer else ()
     return checkpoint["epoch"]
