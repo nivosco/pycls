@@ -147,6 +147,47 @@ class SiLU(Module):
         return x * torch.sigmoid(x)
 
 
+def get_fca_weights(shape, freq=16):
+    _, c, h, w = shape
+    channels_per_freq = c // freq
+    weights = np.ones((1,freq, h, w), np.float32)
+    for i in range(1,freq):
+        for wh in range(h):
+            for ww in range(w):
+                weights[0, i, wh, ww] = np.cos((np.pi * wh / h) * (wh + 0.5)) * np.cos((np.pi * ww / w) * (ww + 0.5))
+    return torch.repeat_interleave(torch.from_numpy(weights), channels_per_freq, dim=1).cuda().float()
+
+
+class FCA_SE(Module):
+    """FcaNet Squeeze-and-Excitation (SE) block: AvgPool, FC, Act, FC, Sigmoid."""
+
+    def __init__(self, w_in, w_se):
+        super(FCA_SE, self).__init__()
+        self.pre_computed_weights = None
+        self.f_ex = nn.Sequential(
+            conv2d(w_in, w_se, 1, bias=True),
+            activation(),
+            conv2d(w_se, w_in, 1, bias=True),
+            nn.Sigmoid(),
+        )
+
+    def forward(self, x):
+        if self.pre_computed_weights is None:
+            self.pre_computed_weights = get_fca_weights([int(i) for i in x.shape])
+        sq = torch.unsqueeze(torch.unsqueeze(torch.sum(x * self.pre_computed_weights, dim=[2,3]), axis=-1), axis=-1)
+        ex = self.f_ex(sq)
+        return x * ex
+
+    @staticmethod
+    def complexity(cx, w_in, w_se):
+        h, w = cx["h"], cx["w"]
+        cx = gap2d_cx(cx, w_in)
+        cx = conv2d_cx(cx, w_in, w_se, 1, bias=True)
+        cx = conv2d_cx(cx, w_se, w_in, 1, bias=True)
+        cx["h"], cx["w"] = h, w
+        return cx
+
+
 class SE(Module):
     """Squeeze-and-Excitation (SE) block: AvgPool, FC, Act, FC, Sigmoid."""
 
